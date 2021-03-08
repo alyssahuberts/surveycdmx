@@ -38,22 +38,13 @@ library(magrittr)
                               VPH_REFRI, VPH_LAVAD, VPH_AUTOM, VPH_MOTO, VPH_BICI, VPH_RADIO, VPH_TV, VPH_PC, VPH_TELEF, VPH_CEL, VPH_INTER) %>% 
     mutate_all(as.numeric)
   for(i in c("VPH_AEASP", "VPH_TINACO","VPH_CISTER", "VPH_REFRI", "VPH_LAVAD", "VPH_AUTOM", "VPH_MOTO", "VPH_BICI", "VPH_RADIO", "VPH_TV", "VPH_PC", "VPH_TELEF", "VPH_CEL", "VPH_INTER")){
-    x <- as.data.frame(census_percents_mza[,i]/census_percents_mza[,"VIVPAR_HAB"]) 
+    x <- as.data.frame(census_percents_mza[,i]/census_percents_mza[,"TVIVHAB"]) 
       colnames(x)[1] <- paste("percent_", i, sep = "")
     census_percents_mza <- cbind(census_percents_mza, x)
   }
   census_mza <- cbind(census_mza, census_percents_mza)
   
   # create wealth index using pca and asset variables 
-  #wealth index (PCA)
-  for(i in c("VPH_RADIO", "VPH_TV", "VPH_REFRI", "VPH_LAVAD", "VPH_AUTOM", "VPH_PC", "VPH_TELEF", "VPH_CEL", "VPH_INTER")){
-    new_name <- paste(i, "_percent", sep ="")
-    percent <- census[,i]/census$VIVPAR_HAB
-    assign(new_name, percent, envir = .GlobalEnv)
-  }
-  assets <- cbind(census[,c("cve_secc", "cve_alc")], VPH_AUTOM_percent, VPH_INTER_percent,VPH_LAVAD_percent, VPH_PC_percent, VPH_RADIO_percent, VPH_TELEF_percent, VPH_TV_percent, VPH_REFRI_percent, VPH_CEL_percent)
-  rm(VPH_AUTOM_percent, VPH_INTER_percent,VPH_LAVAD_percent, VPH_PC_percent, VPH_RADIO_percent, VPH_TELEF_percent, VPH_TV_percent, VPH_REFRI_percent, VPH_CEL_percent)
-  
   #remove the outliers where everyone is reported as having all the services or no one is reported having any of the services 
   assets <- assets[rowSums(assets[3:11])!=0,]
   assets <- assets[rowSums(assets[3:11])!=9,]
