@@ -9,17 +9,62 @@ library(magrittr)
 library(factoextra)
 library(fuzzyjoin)
 
+# Putting everything at the colonia level
+
+  # need to match ageb data onto colonias http://rstudio-pubs-static.s3.amazonaws.com/255550_1c983c8a6a5a45a0aee5a923206f4818.html
+  
+  # read in colonias 
+  colonias_shp <- st_read("/Users/alyssahuberts/Dropbox/2_mx_water/1_Tandeo/2_Data/9_Administrative/coloniascdmx/coloniascdmx.shp")
+  colonias_shp <- st_set_crs(colonias_shp, 4326)
+  colonias_shp$colonia_area <- st_area(colonias_shp)
+  pdf("/Users/alyssahuberts/Dropbox/1_Dissertation/8_Survey/4_plots/colonias.pdf")
+  ggplot(colonias_shp) + geom_sf() + theme_bw() + labs(title = "Colonias")
+  dev.off()
+  
+  # read in ageb shapefile 
+  ageb_shp <- st_read("/Users/alyssahuberts/Dropbox/2_mx_water/1_Tandeo/2_Data/4_Demographics/scince_2010/shps/df/df_ageb_urb.shp")
+  ageb_shp <- st_set_crs(ageb_shp, 4326)
+
+  # for every colonia, identify which agebs it intersects and the area for each (so I can do weighted averages)
+  colonias_ageb <- st_intersection(colonias_shp,ageb_shp[c("CVEGEO", "OID", "geometry")])
+  colonias_ageb$int_area <- st_area(colonias_ageb)
+  colonias_ageb$int_perc_colonia_area <- as.numeric(colonias_ageb$int_area/colonias_ageb$colonia_area)
+  # get rid of places where it's just map areas/boundaries (i'm defining this as less than 5% of colonia is in the ageb)
+  colonias_ageb <- colonias_ageb %>% filter(int_perc_colonia_area >.05)
+
 #######################
 # Census Data 
 #######################  
-  # read in the shapefile at the manzana level. Note that we're only using the urban agebs, which I think is ok
-  # mza_shp <- read_sf("/Users/alyssahuberts/Dropbox/2_mx_water/1_Tandeo/2_Data/4_Demographics/scince_2010/shps/df/df_manzanas.shp")
   # read in the shapefile at the ageb level. Note that we're only using the urban agebs, which I think is ok
-  # ageb_shp <- read_sf("/Users/alyssahuberts/Dropbox/2_mx_water/1_Tandeo/2_Data/4_Demographics/scince_2010/shps/df/df_ageb_urb.shp")
-
-  # 2020 manzana level census data
+  # 2020 ageb - note that this database contains both manzanas and agebs but we'll stick to ageb
   # from https://en.www.inegi.org.mx/programas/ccpv/2020/#Microdata
-  census <- read_csv("/Users/alyssahuberts/Dropbox/2_mx_water/1_Tandeo/2_Data/4_Demographics/2020_census_ageb.csv")
+  census <- read_csv("/Users/alyssahuberts/Dropbox/2_mx_water/1_Tandeo/2_Data/4_Demographics/2020_census_ageb.csv",
+                     col_types = cols(
+                       MUN = col_character(), 
+                       NOM_MUN = col_character(), 
+                       NOM_LOC = col_character(), 
+                       AGEB = col_character(),
+                       POBTOT = col_character(),
+                       PROM_OCUP = col_character(),
+                       TVIVHAB = col_character(),
+                       TVIVPAR = col_character(), 
+                       VIVPAR_HAB = col_character(), 
+                       VPH_AEASP= col_character(), 
+                       VPH_TINACO = col_character(),
+                       VPH_CISTER = col_character(),
+                       VPH_REFRI =col_character(),
+                       VPH_LAVAD = col_character(),
+                       VPH_AUTOM = col_character(),
+                       VPH_MOTO = col_character(),
+                       VPH_BICI = col_character(),
+                       VPH_RADIO = col_character(),
+                       VPH_TV = col_character(),
+                       VPH_PC = col_character(),
+                       VPH_TELEF = col_character(),
+                       VPH_CEL = col_character(),
+                       VPH_INTER = col_character()
+                     )
+                     )
   # drop totals
   census_ageb <- census[census$NOM_LOC == "Total AGEB urbana",]
   census_mza <- census[str_detect(census$NOM_LOC, "Total")==FALSE,]
