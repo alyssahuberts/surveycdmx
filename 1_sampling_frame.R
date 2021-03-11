@@ -41,7 +41,8 @@ library(fuzzyjoin)
   census <- read_csv("/Users/alyssahuberts/Dropbox/2_mx_water/1_Tandeo/2_Data/4_Demographics/2020_census_ageb.csv",
                      col_types = cols_only(
                        MUN = col_character(), 
-                       NOM_MUN = col_character(), 
+                       NOM_MUN = col_character(),
+                       LOC = col_character(),
                        NOM_LOC = col_character(), 
                        AGEB = col_character(),
                        POBTOT = col_character(),
@@ -67,28 +68,40 @@ library(fuzzyjoin)
                      )
   # drop totals and manzana level data
   census_ageb <- census[census$NOM_LOC == "Total AGEB urbana",] %>% 
-    select( MUN, NOM_MUN, NOM_LOC,AGEB, POBTOT, PROM_OCUP, TVIVHAB, TVIVPAR, VIVPAR_HAB,
+    select( MUN, NOM_MUN, LOC, NOM_LOC,AGEB, POBTOT, PROM_OCUP, TVIVHAB, TVIVPAR, VIVPAR_HAB,
            VPH_AEASP, VPH_TINACO, VPH_CISTER,VPH_REFRI,
            VPH_LAVAD,VPH_AUTOM, VPH_MOTO, VPH_BICI, 
            VPH_RADIO, VPH_TV, VPH_PC, VPH_TELEF, VPH_CEL,
            VPH_INTER)
   rm(census)
   
-  census_ageb[,6:23] <- lapply(census_ageb[,6:23],as.numeric)
-  percents <- census_ageb[,8:23]
+  census_ageb[,7:24] <- lapply(census_ageb[,7:24],as.numeric)
+  percents <- census_ageb[,9:24]
   colnames(percents) <- paste("p_", colnames(percents), sep = "")
   census_ageb <- cbind(census_ageb, percents)
   rm(percents)
-  census_ageb[,-(1:24)] %<>% sapply(`/`, census_ageb[,7])
+  census_ageb[,-(1:25)] %<>% sapply(`/`, census_ageb[,8])
   
   # create wealth index using pca and asset variables 
-  census_percents_ageb_complete <- na.omit(census_ageb[,c(29:39)]) 
+  census_percents_ageb_complete <- na.omit(census_ageb[,c(30:40)]) 
   assets <- prcomp(census_percents_ageb_complete, center = TRUE,scale. = TRUE)
-  census_percents_ageb_complete <- na.omit(census_ageb[,c(1:4, 29:39)]) 
+  census_percents_ageb_complete <- na.omit(census_ageb[,c(1:5, 30:40)]) 
   census_percents_ageb_complete$pca_1 <-  get_pca_ind(assets)$coord[,1]
-  census_ageb <- left_join(census_ageb, census_percents_ageb_complete[,c("MUN", "NOM_MUN", "AGEB","pca_1")], by = c("MUN", "NOM_MUN", "AGEB"))
+  census_ageb <- left_join(census_ageb, census_percents_ageb_complete[,c("MUN", "NOM_MUN", "LOC", "AGEB","pca_1")], by = c("MUN", "NOM_MUN", "AGEB", "LOC"))
    
-  rm(list=setdiff(ls(), c("census_percents_ageb", "census_ageb")))
+  # merge the values onto the colonia-ageb level data 
+  # For urban areas (the areas I have here) the CVEGEO can be broken into: 
+  # Urban Areas
+  # EE+MMM+LLLL+AAA-A+NNN
+  # EE: State (2 digits)
+  # MMM: Municipality (3 digits)
+  # LLLL: Locality (four digits)
+  # AAA-A: AGEB (3 digits, dash, 1 digit) 
+  # NNN: Manzana/block (3 digits) 
+  
+  census_ageb$CVEGEO <- paste("09", census_ageb$MUN, census_ageb$LOC, census_ageb$AGEB, sep = "")
+  colonias_ageb <- left_join(colonias_ageb, census_ageb[,c("CVEGEO", "POBTOT", "PROM_OCUP", "TVIVHAB", "TVIVPAR", "VIVPAR_HAB", "VPH_AEASP",
+                                                           "p_VPH_TINACO", "p_VPH_CISTER", "pca_1")], by = "CVEGEO")
   
   ####################
   # Water quality data 
