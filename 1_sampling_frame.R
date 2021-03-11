@@ -102,6 +102,7 @@ library(fuzzyjoin)
   census_ageb$CVEGEO <- paste("09", census_ageb$MUN, census_ageb$LOC, census_ageb$AGEB, sep = "")
   colonias_ageb <- left_join(colonias_ageb, census_ageb[,c("CVEGEO", "POBTOT", "PROM_OCUP", "TVIVHAB", "TVIVPAR", "VIVPAR_HAB", "VPH_AEASP",
                                                            "p_VPH_TINACO", "p_VPH_CISTER", "pca_1")], by = "CVEGEO")
+  rm(census_percents_ageb_complete, assets)
   
   ####################
   # Water quality data 
@@ -137,13 +138,21 @@ library(fuzzyjoin)
   tandeo_status_col[str_detect(tandeo_status_col$status_list, "Tandeo")==TRUE &str_detect(tandeo_status_col$status_list, "Condonado")==FALSE,]$status <- "Rationed"
   tandeo_status_col[str_detect(tandeo_status_col$status_list, "Tandeo")==FALSE &str_detect(tandeo_status_col$status_list, "Condonado")==TRUE,]$status <- "Condoned"
   
-  tandeo_out <- left_join(tandeo_hours_col,tandeo_status_col[,c("cve_col", "status")] )
+  tandeo_out <- left_join(tandeo_hours_col,tandeo_status_col[,c("cve_col", "status")], by = "cve_col" ) %>% rename(rationing_status = status)
+  
   # read in colonias 
-  colonias <- read.csv("/Users/alyssahuberts/Dropbox/2_mx_water/1_Tandeo/2_Data/9_Administrative/coloniascdmx/coloniascdmx.csv")
-  colonias <- left_join(colonias, tandeo_out, by = "cve_col")
-  colonias$status <-ifelse(is.na(colonias$status), "None", colonias$status)
-  colonias$hours_week_normal <- ifelse(is.na(colonias$hours_week_normal),168, colonias$hours_week_normal)
-  colonias$hours_week_estiaje <- ifelse(is.na(colonias$hours_week_estiaje),168, colonias$hours_week_estiaje)
+  colonias_tandeo <- read.csv("/Users/alyssahuberts/Dropbox/2_mx_water/1_Tandeo/2_Data/9_Administrative/coloniascdmx/coloniascdmx.csv") %>% 
+    select(cve_col)
+  colonias_tandeo <- left_join(colonias_tandeo, tandeo_out, by = "cve_col")
+  colonias_tandeo$rationing_status <-ifelse(is.na(colonias_tandeo$rationing_status), "None", colonias_tandeo$rationing_status)
+  colonias_tandeo$hours_week_normal <- ifelse(is.na(colonias_tandeo$hours_week_normal),168, colonias_tandeo$hours_week_normal)
+  colonias_tandeo$hours_week_estiaje <- ifelse(is.na(colonias_tandeo$hours_week_estiaje),168, colonias_tandeo$hours_week_estiaje)
   
+  rm(days_week, hours_day, tandeo, tandeo_hours_col, tandeo_status_col, tandeo_out)
   
+  colonias_ageb <- left_join(colonias_ageb, colonias_tandeo, by = "cve_col")
+  
+  # bring in altitude at colonia level
+  altitude <- read_csv("/Users/alyssahuberts/Dropbox/2_mx_water/1_Tandeo/2_Data/5_Altitude/altitude_colonia.csv")
+  colonias_ageb <- left_join(colonias_ageb, altitude,  by = c("nombre", "entidad", "cve_alc", "alcaldia", "cve_col", "secc_com", "secc_par"))
   
