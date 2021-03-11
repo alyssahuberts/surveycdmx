@@ -39,7 +39,7 @@ library(fuzzyjoin)
   # 2020 ageb - note that this database contains both manzanas and agebs but we'll stick to ageb
   # from https://en.www.inegi.org.mx/programas/ccpv/2020/#Microdata
   census <- read_csv("/Users/alyssahuberts/Dropbox/2_mx_water/1_Tandeo/2_Data/4_Demographics/2020_census_ageb.csv",
-                     col_types = cols(
+                     col_types = cols_only(
                        MUN = col_character(), 
                        NOM_MUN = col_character(), 
                        NOM_LOC = col_character(), 
@@ -65,75 +65,30 @@ library(fuzzyjoin)
                        VPH_INTER = col_character()
                      )
                      )
-  # drop totals
-  census_ageb <- census[census$NOM_LOC == "Total AGEB urbana",]
-  census_mza <- census[str_detect(census$NOM_LOC, "Total")==FALSE,]
+  # drop totals and manzana level data
+  census_ageb <- census[census$NOM_LOC == "Total AGEB urbana",] %>% 
+    select( MUN, NOM_MUN, NOM_LOC,AGEB, POBTOT, PROM_OCUP, TVIVHAB, TVIVPAR, VIVPAR_HAB,
+           VPH_AEASP, VPH_TINACO, VPH_CISTER,VPH_REFRI,
+           VPH_LAVAD,VPH_AUTOM, VPH_MOTO, VPH_BICI, 
+           VPH_RADIO, VPH_TV, VPH_PC, VPH_TELEF, VPH_CEL,
+           VPH_INTER)
   rm(census)
-
-  #######################
-  # clean census data 
-  #######################
-  # filter to the variables I think I'll want to keep:
-  # MUN, NOM_MUN, LOC, NOM_LOC, AGEB, MZA, POBTOT, PNACENT (People born in the same entidad), PROM_OCUP (average number of occupants in a vivienda), 
-  # TVIVHAB (total de viviendas  habitadas), TVIVPAR (total de vivendas particulares), VIVPAR_HAB (viviendas particulares habitadas) VPH_AGUADV (viviendas particulares habitadas with water inside vivienda)
-  # VPH_AEASP (viviendas particulaares habitadas que disponen de agua entubada en el ambito de la vivienda y se abastecen del servicio publico del agua)
-  # VPH_TINACO (viviendas particulares habitadas que disponen de tinaco), VPH_CISTER (viviendas particulares habitadas que disponen de cisterna o aljibe) 
-  # Assets: VPH_REFRI, VPH_LAVAD,VPH_HMICRO, VPH_AUTOM, VPH_MOTO, VPH_BICI, VPH_RADIO, VPH_TV, VPH_PC, VPH_TELEF, VPH_CEL,
-  # VPH_INTER)
-  census_mza_1 <- census_mza %>% select(MUN, NOM_MUN, LOC, NOM_LOC, AGEB, MZA)
-  census_num <- census_mza %>% select(POBTOT, PNACENT, PROM_OCUP,TVIVHAB, TVIVPAR, VIVPAR_HAB,VPH_AGUADV,VPH_AEASP, VPH_TINACO,VPH_CISTER, 
-                              VPH_REFRI, VPH_LAVAD, VPH_AUTOM, VPH_MOTO, VPH_BICI, VPH_RADIO, VPH_TV, VPH_PC, VPH_TELEF, VPH_CEL, VPH_INTER) %>% 
-    mutate_all(as.numeric)
-  census_mza <- cbind(census_mza_1, census_num)
-
-
-  census_percents_mza <-  census_mza_1 
-  for(i in c("VPH_AEASP", "VPH_TINACO","VPH_CISTER", "VPH_REFRI", "VPH_LAVAD", "VPH_AUTOM", "VPH_MOTO", "VPH_BICI", "VPH_RADIO", "VPH_TV", "VPH_PC", "VPH_TELEF", "VPH_CEL", "VPH_INTER")){
-    x <- as.data.frame(census_num[,i]/census_num[,"TVIVHAB"]) 
-      colnames(x)[1] <- paste("percent_", i, sep = "")
-      census_percents_mza <- cbind(census_percents_mza,x)
-  }
-
-  # do the same at ageb level
   
-  census_ageb_1 <- census_ageb %>% select(MUN, NOM_MUN, LOC, NOM_LOC, AGEB, MZA)
-  census_num_ageb <- census_ageb %>% select(POBTOT, PNACENT, PROM_OCUP,TVIVHAB, TVIVPAR, VIVPAR_HAB,VPH_AGUADV,VPH_AEASP, VPH_TINACO,VPH_CISTER, 
-                                      VPH_REFRI, VPH_LAVAD, VPH_AUTOM, VPH_MOTO, VPH_BICI, VPH_RADIO, VPH_TV, VPH_PC, VPH_TELEF, VPH_CEL, VPH_INTER) %>% 
-  mutate_all(as.numeric)
-  census_ageb <- cbind(census_ageb_1, census_num_ageb)
-  
-  census_percents_ageb <- census_ageb_1
-  for(i in c("VPH_AEASP", "VPH_TINACO","VPH_CISTER", "VPH_REFRI", "VPH_LAVAD", "VPH_AUTOM", "VPH_MOTO", "VPH_BICI", "VPH_RADIO", "VPH_TV", "VPH_PC", "VPH_TELEF", "VPH_CEL", "VPH_INTER")){
-    x <- as.data.frame(census_num_ageb[,i]/census_num_ageb[,"TVIVHAB"]) 
-    colnames(x)[1] <- paste("percent_", i, sep = "")
-    census_percents_ageb <- cbind(census_percents_ageb,x)
-  }
-  # for "missing" (redacted) data, impute based on the AGEB-level percentage. This is most
-  # common in cases where there is a single building (like a big UH) and they
-  # didn't want to report the data at that level
-  census_percents_mza$percent_VPH_AEASP <- ifelse(is.na(census_percents_mza$percent_VPH_AEASP), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_AEASP"], census_percents_mza$percent_VPH_AEASP)
-  census_percents_mza$percent_VPH_CISTER <- ifelse(is.na(census_percents_mza$percent_VPH_CISTER), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_CISTER"], census_percents_mza$percent_VPH_CISTER)
-  census_percents_mza$percent_VPH_TINACO <- ifelse(is.na(census_percents_mza$percent_VPH_TINACO), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_TINACO"], census_percents_mza$percent_VPH_TINACO)
-  
-  census_percents_mza$percent_VPH_REFRI <- ifelse(is.na(census_percents_mza$percent_VPH_REFRI), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_REFRI"], census_percents_mza$percent_VPH_REFRI)
-  census_percents_mza$percent_VPH_LAVAD <- ifelse(is.na(census_percents_mza$percent_VPH_LAVAD), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_LAVAD"], census_percents_mza$percent_VPH_LAVAD)
-  census_percents_mza$percent_VPH_MOTO <- ifelse(is.na(census_percents_mza$percent_VPH_MOTO), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_MOTO"], census_percents_mza$percent_VPH_MOTO)
-  census_percents_mza$percent_VPH_AUTOM <- ifelse(is.na(census_percents_mza$percent_VPH_AUTOM), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_AUTOM"], census_percents_mza$percent_VPH_AUTOM)
-  census_percents_mza$percent_VPH_BICI <- ifelse(is.na(census_percents_mza$percent_VPH_BICI), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_BICI"], census_percents_mza$percent_VPH_BICI)
-  census_percents_mza$percent_VPH_RADIO <- ifelse(is.na(census_percents_mza$percent_VPH_RADIO), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_RADIO"], census_percents_mza$percent_VPH_RADIO)
-  census_percents_mza$percent_VPH_TELEF <- ifelse(is.na(census_percents_mza$percent_VPH_TELEF), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_TELEF"], census_percents_mza$percent_VPH_TELEF)
-  census_percents_mza$percent_VPH_TV <- ifelse(is.na(census_percents_mza$percent_VPH_TV), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_TV"], census_percents_mza$percent_VPH_TV)
-  census_percents_mza$percent_VPH_PC <- ifelse(is.na(census_percents_mza$percent_VPH_PC), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_PC"], census_percents_mza$percent_VPH_PC)
-  census_percents_mza$percent_VPH_CEL <- ifelse(is.na(census_percents_mza$percent_VPH_CEL), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_CEL"], census_percents_mza$percent_VPH_CEL)
-  census_percents_mza$percent_VPH_INTER <- ifelse(is.na(census_percents_mza$percent_VPH_INTER), census_percents_ageb[match(census_percents_mza$AGEB, census_percents_ageb$AGEB), "percent_VPH_INTER"], census_percents_mza$percent_VPH_INTER)
+  census_ageb[,6:23] <- lapply(census_ageb[,6:23],as.numeric)
+  percents <- census_ageb[,8:23]
+  colnames(percents) <- paste("p_", colnames(percents), sep = "")
+  census_ageb <- cbind(census_ageb, percents)
+  rm(percents)
+  census_ageb[,-(1:24)] %<>% sapply(`/`, census_ageb[,7])
   
   # create wealth index using pca and asset variables 
-  census_percents_mza_complete <- na.omit(census_percents_mza[c(5:6,10:20)]) 
-  assets <- prcomp((na.omit(census_percents_mza_complete[,3:13])), center = TRUE,scale. = TRUE)
-  census_percents_mza_complete$pca_1 <-  get_pca_ind(assets)$coord[,1]
-  census_percents_mza <- left_join(census_percents_mza, census_percents_mza_complete[,c("AGEB","MZA", "pca_1")], by = c("AGEB", "MZA"))
+  census_percents_ageb_complete <- na.omit(census_ageb[,c(29:39)]) 
+  assets <- prcomp(census_percents_ageb_complete, center = TRUE,scale. = TRUE)
+  census_percents_ageb_complete <- na.omit(census_ageb[,c(1:4, 29:39)]) 
+  census_percents_ageb_complete$pca_1 <-  get_pca_ind(assets)$coord[,1]
+  census_ageb <- left_join(census_ageb, census_percents_ageb_complete[,c("MUN", "NOM_MUN", "AGEB","pca_1")], by = c("MUN", "NOM_MUN", "AGEB"))
    
-  rm(list=setdiff(ls(), c("census_percents_mza", "census_percents_ageb")))
+  rm(list=setdiff(ls(), c("census_percents_ageb", "census_ageb")))
   
   ####################
   # Water quality data 
