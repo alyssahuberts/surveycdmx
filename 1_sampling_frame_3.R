@@ -178,6 +178,14 @@ library(magrittr)
   secciones$cve_secc <- str_pad(secciones$seccion, 4, "left", "0")
   secciones <- left_join(secciones, elections, by = "cve_secc")
   
+  # read in distance to alcaldias
+  d2alc <- read_csv("/Users/alyssahuberts/Dropbox/1_Dissertation/6_Background/dist_to_alcaldia.csv")
+  # join in the seccion level information
+  d2alc <- d2alc %>% rename(clavegeo= InputID, cve_alc = TargetID, dist_to_alcaldia = Distance)
+  d2alc <-left_join(d2alc, secciones[,c("clavegeo", "entidad", "distrito", "municipio", "seccion")], by = "clavegeo")
+  d2alc <- d2alc %>% filter(municipio == cve_alc)
+  secciones <- left_join(secciones, d2alc[,c("clavegeo", "dist_to_alcaldia")], by = "clavegeo")
+  
   sample_secciones <- secciones %>% filter( municipio == 5|
                                             municipio == 6|
                                             municipio == 11|
@@ -187,14 +195,7 @@ library(magrittr)
   mean(sample_secciones$protests_2013_2017,na.rm=TRUE)
   ggplot(sample_secciones) + geom_histogram(aes(x= protests_2013_2017)) 
   
-  # read in distance to alcaldias
-  d2alc <- read_csv("/Users/alyssahuberts/Dropbox/1_Dissertation/6_Background/dist_to_alcaldia.csv")
-  # join in the seccion level information
-  d2alc <- d2alc %>% rename(clavegeo= InputID, cve_alc = TargetID, dist_to_alcaldia = Distance)
-  d2alc <-left_join(d2alc, secciones[,c("clavegeo", "entidad", "distrito", "municipio", "seccion")], by = "clavegeo")
-  d2alc <- d2alc %>% filter(municipio == cve_alc)
-  secciones <- left_join(secciones, d2alc[,c("clavegeo", "dist_to_alcaldia")], by = "clavegeo")
-  
+
   save(sample_secciones, file = "/Users/alyssahuberts/Dropbox/1_Dissertation/8_Survey/8_Data/sampling_frame.Rdata")
   
   
