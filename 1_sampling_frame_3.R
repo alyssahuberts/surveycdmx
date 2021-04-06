@@ -61,10 +61,11 @@ library(magrittr)
   secciones <- left_join(secciones, seccion_protests, by = "clavegeo")
   secciones[, c("protests_2013_2017", "protests_2013_2020")][is.na(secciones[,  c("protests_2013_2017", "protests_2013_2020")])] <- 0
   secciones$protest_yes_no <- ifelse(secciones$protests_2013_2017 >0, 1,0)
-
+  
   # bring in traffic stats and merge
   load("/Users/alyssahuberts/Dropbox/1_Dissertation/6_Background/Protests:Blockades/traffic/jobs_2219528_results_Mexico_City_Traffic.shapefile/traffic_stats_by_seccion.Rdata")
-  secciones <- left_join(secciones, traffic_maxes, by = "clavegeo")
+  secciones$cve_secc <- str_pad(secciones$seccion, 4, "left", "0")
+  secciones <- left_join(secciones, traffic_maxes, by = "cve_secc")
   
   # add in census level data. Note that as this data is collected at the
   # manzana/ageb level, we're taking weighted averages across overlapping
