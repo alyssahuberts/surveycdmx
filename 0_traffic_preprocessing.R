@@ -40,8 +40,11 @@ traffic <- read_csv("/Users/alyssahuberts/Dropbox/1_Dissertation/6_Background/Pr
 
 # bring in segments with seccion
 segments_secciones <- read_csv("/Users/alyssahuberts/Dropbox/1_Dissertation/6_Background/Protests:Blockades/traffic/jobs_2219528_results_Mexico_City_Traffic.shapefile/traffic_with_seccion.csv")
-segments_secciones <- segments_secciones[,1:12]
+segments_secciones <- segments_secciones[,c(1:7, 173)]
+segments_secciones <- segments_secciones %>% rename(id = Id)
+segments_secciones <- left_join(segments_secciones,traffic_stats, by = "id")
+
 # for each segment, come up with the max hits
-traffic_maxes <- segments_secciones %>% group_by(CVEGEO) %>% summarize(max_hits = max(traffic_stats_max_hits, na.rm=TRUE)) %>% rename(clavegeo=CVEGEO, max_traffic = max_hits)
+traffic_maxes <- segments_secciones %>% group_by(cve_secc) %>% summarize(max_traffic = max(max_hits, na.rm=TRUE)) 
 save(traffic_maxes, file = "/Users/alyssahuberts/Dropbox/1_Dissertation/6_Background/Protests:Blockades/traffic/jobs_2219528_results_Mexico_City_Traffic.shapefile/traffic_stats_by_seccion.Rdata")
 
