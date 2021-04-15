@@ -1,7 +1,7 @@
 ################
 # Sampling frame 3
 # Date created: 4/1/2021
-# Date last edited: 4/1/2021
+# Date last edited: 4/15/2021
 ################
 # Seccion level sampling frame 
 library(tidyverse)
@@ -10,6 +10,7 @@ library(lubridate)
 library(modeest)
 library(factoextra)
 library(magrittr)
+library(janitor)
 
 
 # read in shapefile of secciones
@@ -174,9 +175,11 @@ library(magrittr)
   
   # Now join in election data (from 0_elections_preprocessing_seccion)
   load("/Users/alyssahuberts/Dropbox/1_Dissertation/8_Survey/8_Data/vote_shares_15_18.Rdata")
-  # something's not right here
   secciones$cve_secc <- str_pad(secciones$seccion, 4, "left", "0")
   secciones <- left_join(secciones, elections, by = "cve_secc")
+  # note that 5501 seems to be removed from the map in 2015 and 2018, so we'll eliminate it
+  secciones <- secciones[secciones$cve_secc!= "5501",]
+  
   
   # read in distance to alcaldias
   d2alc <- read_csv("/Users/alyssahuberts/Dropbox/1_Dissertation/6_Background/dist_to_alcaldia.csv")
@@ -192,9 +195,54 @@ library(magrittr)
                                             municipio == 7|
                                             municipio == 17)
   
-  mean(sample_secciones$protests_2013_2017,na.rm=TRUE)
-  ggplot(sample_secciones) + geom_histogram(aes(x= protests_2013_2017)) 
   
+  # create IVS
+  sample_secciones$ivs_2018 <- ifelse(sample_secciones$cve_alc==17,
+                                      sample_secciones$vsprd_jd_2018,
+                                      sample_secciones$vsmorena_jd_2018)
+  
+  # what percentile are the different cutpoints at? 
+  get_percentile <- ecdf(sample_secciones$ivs_2018)
+  get_percentile(.36)
+  get_percentile(.46)
+  
+  get_percentile_dist <- ecdf(sample_secciones$dist_to_alcaldia)
+  get_percentile_dist(1500)
+  
+  # get the 25th percentile traffic
+  sample_secciones$max_traffic <- ifelse(sample_secciones$max_traffic==-Inf, 0, sample_secciones$max_traffic)
+  sample_secciones$max_traffic <- ifelse(is.na(sample_secciones$max_traffic), 0, sample_secciones$max_traffic)
+  
+  quantile(sample_secciones$max_traffic, probs = c(.75), na.rm=TRUE)
+  
+  sample_secciones$megaphone <- ifelse(sample_secciones$max_traffic>2799|
+                                       sample_secciones$uh_in_seccion ==1|
+                                       sample_secciones$dist_to_alcaldia <1500,1,0)
+  
+ sample_secciones$voteshare <- ifelse(sample_secciones$ivs_2018 <.36, 1, NA)
+ sample_secciones$voteshare <- ifelse(sample_secciones$ivs_2018 >=.36& sample_secciones$ivs_2018 <.46, 2, sample_secciones$voteshare)
+ sample_secciones$voteshare <- ifelse(sample_secciones$ivs_2018 >=.46, 3, sample_secciones$voteshare)
+ 
+ sample_secciones$block <-paste("Votes = ", sample_secciones$voteshare,", Megaphone = ", sample_secciones$megaphone,sep ="")
+ 
+  map <-left_join(secciones_shp[(secciones_shp$municipio == 5|
+                                secciones_shp$municipio == 6|
+                                secciones_shp$municipio ==7|
+                                secciones_shp$municipio ==11|
+                                  secciones_shp$municipio == 17),], sample_secciones, by = "seccion")
+  ggplot(map)+ geom_sf(aes(fill = factor(megaphone)))
+  
+  pdf(file = "/Users/alyssahuberts/Dropbox/1_Dissertation/8_Survey/4_plots/blocks.pdf")
+  ggplot(map) + geom_sf(aes(fill = factor(block))) +theme_classic()
+  dev.off()
+  
+  
+  seccion_totals <- sample_secciones %>% group_by(cve_alc, block) %>% tally() %>% 
+    pivot_wider(values_from = n, names_from=cve_alc)
+  
+  
+  seccion_totals_2 <- sample_secciones %>% group_by( block) %>% tally()
+  seccion_totals_3 <- sample_secciones %>% group_by( block) %>% summarise(sum(pobtot))
 
   save(sample_secciones, file = "/Users/alyssahuberts/Dropbox/1_Dissertation/8_Survey/8_Data/sampling_frame.Rdata")
   

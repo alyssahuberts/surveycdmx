@@ -3,7 +3,10 @@
 # Date created: 4/5/2021
 # Date last edited: 4/5/2021
 ################
-
+library(lfe)
+library(stargazer)
+library(tidyverse)
+library(sf)
 load("/Users/alyssahuberts/Dropbox/1_Dissertation/8_Survey/8_Data/sampling_frame.Rdata")
 
 sample_secciones %>% group_by(uh_in_seccion) %>% summarize(n=n(),
@@ -86,20 +89,76 @@ sample_secciones %>% group_by(protest_yes_no, uh_in_seccion) %>% tally()
 
 # do 1) presence of a UH, 2) traffic within seccion, 3) distance to alcaldia shape likelihood of claim-making?
     sample_secciones <- left_join(sample_secciones, pipas_final, by = "clavegeo") 
+    sample_secciones$n_pipa_request <- ifelse(sample_secciones$municipio == 7 & is.na(sample_secciones$n_pipa_request), 0, sample_secciones$n_pipa_request)
     sample_secciones <- left_join(sample_secciones, tweets_seccion_wtd, by = "clavegeo")
     
 # First just do difference in means 
-    sample_secciones %>% group_by(cve_alc, uh_in_seccion) %>% summarize(mean(protests_2013_2017))
+    sample_secciones %>% group_by( uh_in_seccion) %>% summarize(mean(protests_2013_2017))
+    sample_secciones %>% group_by(uh_in_seccion) %>% summarize(mean(twitter_complaints))
+    sample_secciones %>% filter(municipio == 7) %>%  group_by(uh_in_seccion) %>% summarize(mean(n_pipa_request))
+    
+# NO CONTROLS    
+# regress the three outcomes on having a UH 
+    u1 <- felm(protests_2013_2020 ~ uh_in_seccion |municipio|0|0, data = sample_secciones)
+    u2 <- felm(twitter_complaints ~ uh_in_seccion|municipio|0|0, data = sample_secciones)
+    u3 <- felm(n_pipa_request ~ uh_in_seccion|0|0|0, data = sample_secciones[sample_secciones$municipio==7,])
+    
+    # regress the three outcomes on max traffic
+    sample_secciones$max_traffic <-ifelse(is.na(sample_secciones$max_traffic) | sample_secciones$max_traffic=="-Inf",0,sample_secciones$max_traffic)
+    t1 <- felm(protests_2013_2020 ~ max_traffic|municipio|0|0, data = sample_secciones)
+    t2 <- felm(twitter_complaints ~ max_traffic|municipio|0|0, data = sample_secciones)
+    t3 <- felm(n_pipa_request ~ max_traffic|0|0|0, data = sample_secciones[sample_secciones$municipio==7,])
+  
+    # regress the three outcomes on distance to alcaldia
+    d1 <- felm(protests_2013_2020 ~ dist_to_alcaldia|municipio|0|0, data = sample_secciones)
+    d2 <- felm(twitter_complaints ~ dist_to_alcaldia|municipio|0|0, data = sample_secciones)
+    d3 <- felm(n_pipa_request ~ dist_to_alcaldia|0|0|0, data = sample_secciones[sample_secciones$municipio==7,])
+    
+    all_1 <-felm(protests_2013_2020 ~ uh_in_seccion + max_traffic + dist_to_alcaldia|municipio|0|0, data = sample_secciones)
+    all_2 <- felm(twitter_complaints ~ uh_in_seccion + max_traffic + dist_to_alcaldia|municipio|0|0, data = sample_secciones)
+    all_3 <-felm(n_pipa_request ~ uh_in_seccion + max_traffic + dist_to_alcaldia|0|0|0, data = sample_secciones[sample_secciones$municipio==7,])
+    
+    stargazer(u1,t1,d1,all_1, type = "text")
+    stargazer(u2,t2,d2, all_2, type = "text")
+    stargazer(u3,t3,d3, all_3, type = "text")
+
+    sample_secciones$traffic_2500 <- ifelse(sample_secciones$max_traffic>2500,1,0)
+    sample_secciones$dist_2500 <- ifelse(sample_secciones$dist_to_alcaldia <2500,1,0)
+    #CONTROLS FOR VOTE SHARE, POPULATION AND INCOME    
+    # regress the three outcomes on having a UH 
+    u1 <- felm(protests_2013_2020 ~ uh_in_seccion + pca_1 + vsmorena_jd_2018 + pobtot |municipio|0|0, data = sample_secciones)
+    u2 <- felm(twitter_complaints ~ uh_in_seccion+ pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones)
+    u3 <- felm(n_pipa_request ~ uh_in_seccion|municipio|0|0, data = sample_secciones[sample_secciones$municipio==7,])
+    
+    # regress the three outcomes on max traffic
+    t1 <- felm(protests_2013_2020 ~ max_traffic+ pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones)
+    t2 <- felm(twitter_complaints ~ max_traffic+ pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones)
+    t3 <- felm(n_pipa_request ~ max_traffic+ pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones[sample_secciones$municipio==7,])
+    
+    # regress the three outcomes on distance to alcaldia
+    d1 <- felm(protests_2013_2020 ~ dist_to_alcaldia+ pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones)
+    d2 <- felm(twitter_complaints ~ dist_to_alcaldia+ pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones)
+    d3 <- felm(n_pipa_request ~ dist_to_alcaldia+ pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones[sample_secciones$municipio==7,])
+    
+    all_1 <-felm(protests_2013_2020 ~ uh_in_seccion + max_traffic + dist_to_alcaldia+ pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones)
+    all_2 <- felm(twitter_complaints ~ uh_in_seccion + max_traffic + dist_to_alcaldia+ pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones)
+    all_3 <-felm(n_pipa_request ~ uh_in_seccion + max_traffic + dist_to_alcaldia+ pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones[sample_secciones$municipio==7,])
     
     
+    all_3_bin <-felm(n_pipa_request ~ uh_in_seccion + traffic_2500 + dist_2500 + pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones[sample_secciones$municipio==7,])
+    sample_secciones$megaphone <- ifelse(sample_secciones$uh_in_seccion ==1|
+                                         sample_secciones$traffic_2500 ==1|
+                                         sample_secciones$dist_2500==1,1,0)
     
-# how different do places with UH's look from places without?
-  sample_secciones %>%
-    group_by(municipio, uh_in_seccion) %>% 
-    summarize(mean(protests_2013_2017))
-
-
-
+    megaphone_pipa <-felm(n_pipa_request ~ megaphone + pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones[sample_secciones$municipio==7,])
+    megaphone_protest <-felm(protests_2013_2020 ~ megaphone + pca_1 + vsmorena_jd_2018 + pobtot|municipio|0|0, data = sample_secciones[sample_secciones$municipio==7,])
+    
+    
+    stargazer(u1,t1,d1,all_1, type = "text", title = "Protests (With Controls)")
+    stargazer(u2,t2,d2, all_2, type = "text", title = "Twitter (With Controls)")
+    stargazer(u3,t3,d3, all_3, type = "text", title = "Pipas (With Controls)")  
+    
+    
 # pull a random sample of secciones 1000 times and count the number of secciones that have a UH in them 
   n_uh <- c()
   for(i in 1:10000){
