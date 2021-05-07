@@ -243,6 +243,11 @@ library(janitor)
   
   seccion_totals_2 <- sample_secciones %>% group_by( block) %>% tally()
   seccion_totals_3 <- sample_secciones %>% group_by( block) %>% summarise(sum(pobtot))
+<<<<<<< HEAD
+=======
+  
+ 
+>>>>>>> 4211cef757cd3d34e73a68961930be9c8bd71654
 
   save(sample_secciones, file = "/Users/alyssahuberts/Dropbox/1_Dissertation/8_Survey/8_Data/sampling_frame.Rdata")
   
